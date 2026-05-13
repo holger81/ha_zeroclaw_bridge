@@ -11,6 +11,17 @@
           "webhook_secret": "X-Webhook-Secret value (optional)",
           "verify_ssl": "Verify TLS certificates"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure ZeroClaw gateway",
+        "description": "Update URL or credentials. Leave bearer token and webhook secret blank to keep the saved values.",
+        "data": {
+          "base_url": "Gateway base URL (e.g. http://host:8585)",
+          "title": "Display name",
+          "bearer_token": "Bearer token (optional if pairing is disabled)",
+          "webhook_secret": "X-Webhook-Secret value (optional)",
+          "verify_ssl": "Verify TLS certificates"
+        }
       }
     },
     "abort": {

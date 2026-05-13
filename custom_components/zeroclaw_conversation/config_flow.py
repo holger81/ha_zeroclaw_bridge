@@ -51,6 +51,22 @@ class ZeroClawConversationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def _merge_optional_secrets(
+        self, user_input: dict[str, Any], prior: dict[str, Any]
+    ) -> tuple[str, str]:
+        """Use new bearer/webhook values when non-empty; otherwise keep stored values."""
+        bearer_in = user_input.get(CONF_BEARER_TOKEN)
+        bearer_stripped = bearer_in.strip() if isinstance(bearer_in, str) else ""
+        bearer = (
+            bearer_stripped if bearer_stripped else (prior.get(CONF_BEARER_TOKEN) or "")
+        )
+        secret_in = user_input.get(CONF_WEBHOOK_SECRET)
+        secret_stripped = secret_in.strip() if isinstance(secret_in, str) else ""
+        webhook = (
+            secret_stripped if secret_stripped else (prior.get(CONF_WEBHOOK_SECRET) or "")
+        )
+        return bearer, webhook
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -102,6 +118,74 @@ class ZeroClawConversationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
+            data_schema=schema,
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Let the user change gateway URL and credentials."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            try:
+                base_url = _validate_base_url(user_input[CONF_BASE_URL])
+            except vol.Invalid:
+                errors["base"] = "invalid_url"
+            else:
+                new_uid = _host_key(base_url)
+                existing = await self.async_set_unique_id(new_uid)
+                if existing is not None and existing.entry_id != entry.entry_id:
+                    return self.async_abort(reason="already_configured")
+
+                title = (user_input.get("title") or "").strip() or entry.title
+                bearer, webhook = self._merge_optional_secrets(
+                    user_input, entry.data
+                )
+                return self.async_update_reload_and_abort(
+                    entry,
+                    unique_id=new_uid,
+                    title=title,
+                    data_updates={
+                        CONF_BASE_URL: base_url,
+                        CONF_BEARER_TOKEN: bearer,
+                        CONF_WEBHOOK_SECRET: webhook,
+                        CONF_VERIFY_SSL: user_input.get(
+                            CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL
+                        ),
+                    },
+                )
+
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_BASE_URL, default=entry.data.get(CONF_BASE_URL, "")
+                ): TextSelector(
+                    TextSelectorConfig(
+                        type=TextSelectorType.URL,
+                        autocomplete="off",
+                    )
+                ),
+                vol.Optional("title", default=entry.title): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT, autocomplete="off")
+                ),
+                vol.Optional(CONF_BEARER_TOKEN): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                ),
+                vol.Optional(CONF_WEBHOOK_SECRET): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                ),
+                vol.Optional(
+                    CONF_VERIFY_SSL,
+                    default=entry.data.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
+                ): BooleanSelector(BooleanSelectorConfig()),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="reconfigure",
             data_schema=schema,
             errors=errors,
         )
