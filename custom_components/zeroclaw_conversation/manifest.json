@@ -1,10 +1,11 @@
 {
   "domain": "zeroclaw_conversation",
   "name": "ZeroClaw Conversation",
-  "codeowners": [],
+  "codeowners": ["@holger81"],
   "config_flow": true,
   "dependencies": ["conversation"],
-  "documentation": "https://github.com/zeroclaw-labs/zeroclaw",
+  "documentation": "https://github.com/holger81/ha_zeroclaw_bridge",
+  "issue_tracker": "https://github.com/holger81/ha_zeroclaw_bridge/issues",
   "integration_type": "service",
   "iot_class": "local_polling",
   "requirements": [],
